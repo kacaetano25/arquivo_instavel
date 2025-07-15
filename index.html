@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ARQUIVO INSTÁVEL</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Rubik+Glitch&family=Rubik:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/ml5@latest/dist/ml5.min.js"></script>
+    
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Rubik', sans-serif; background: #000; overflow-x: hidden; cursor: crosshair; }
+        .bg-custom { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background-image: url('bg-glitch.jpg'); background-size: cover; background-position: center; opacity: 0.4; z-index: -3; filter: contrast(1.2) brightness(0.7); }
+        .bg-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: repeating-linear-gradient( 0deg, transparent, transparent 3px, rgba(255, 255, 255, 0.08) 3px, rgba(255, 255, 255, 0.08) 4px ), repeating-linear-gradient( 90deg, transparent, transparent 150px, rgba(255, 255, 255, 0.03) 150px, rgba(255, 255, 255, 0.03) 152px ); z-index: -2; animation: darkScanlines 0.12s infinite; }
+        .glitch-noise { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; opacity: 0.05; z-index: -1; background: radial-gradient(circle at 10% 20%, rgba(255, 0, 0, 0.1) 0%, transparent 50%), radial-gradient(circle at 90% 80%, rgba(255, 255, 255, 0.05) 0%, transparent 50%); animation: noiseFlicker 0.1s infinite; }
+        .main-title { position: absolute; top: 5%; left: 47%; transform: translateX(-50%); font-family: 'Rubik Glitch', cursive; font-size: clamp(2rem, 8vw, 6rem); color: #ddd; text-align: left; z-index: 100; text-shadow: 1px 0 #aa0000, -1px 0 #cccccc, 0 1px rgba(255, 255, 255, 0.3); animation: titleCorruption 3s infinite; filter: contrast(1.1); text-transform: lowercase; line-height: 0.9; }
+        .main-title .line2 { transform: translateX(25px); display: block; }
+        .subtitle { position: absolute; top: 18%; left: 50%; transform: translateX(-50%); font-family: 'Rubik', sans-serif; font-size: 1.2rem; color: #999; text-align: center; font-weight: 300; letter-spacing: 2px; z-index: 90; opacity: 0.8; }
+        .upload-window { position: absolute; top: 25%; left: 50%; transform: translateX(-50%); width: 450px; height: 350px; background: rgba(10, 10, 10, 0.95); border: 1px solid #333; border-radius: 4px; box-shadow: 0 0 30px rgba(0, 0, 0, 0.8), inset 0 0 20px rgba(255, 0, 0, 0.05); z-index: 50; backdrop-filter: blur(10px); transition: all 0.3s ease; }
+        .upload-window.horizontal { width: 520px; height: 400px; }
+        .upload-window.vertical { width: 400px; height: 520px; }
+        .upload-window.square { width: 520px; height: 520px; }
+        .upload-window.processing { border-color: #ff0000; box-shadow: 0 0 50px rgba(255, 0, 0, 0.3), inset 0 0 30px rgba(255, 0, 0, 0.1); animation: labFlicker 0.5s infinite; }
+        .window-header { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: rgba(20, 20, 20, 0.9); border-bottom: 1px solid #444; border-radius: 3px 3px 0 0; }
+        .window-title { color: #ccc; font-size: 0.85rem; font-weight: 400; font-family: monospace; }
+        .window-controls { display: flex; gap: 6px; }
+        .control-btn { width: 10px; height: 10px; border-radius: 50%; border: none; cursor: pointer; opacity: 0.7; }
+        .minimize { background: #666; } .maximize { background: #888; } .close { background: #aa0000; }
+        .work-area { height: calc(100% - 40px); position: relative; margin: 15px; border: 1px dashed #555; border-radius: 2px; background: rgba(5, 5, 5, 0.5); overflow: hidden; }
+        .upload-dropzone { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; cursor: pointer; transition: all 0.3s ease; }
+        .upload-dropzone:hover { border-color: #ff0000; background: rgba(255, 0, 0, 0.03); }
+        .upload-dropzone.dragover { border-color: #ffffff; background: rgba(255, 255, 255, 0.05); }
+        .upload-text { color: #aaa; text-align: center; font-size: 0.9rem; margin-bottom: 10px; }
+        .file-input { display: none; }
+        .image-workspace { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: none; flex-direction: column; }
+        .workspace-image { flex: 1; width: 100%; object-fit: contain; background: #111; }
+        .workspace-status { height: 30px; background: rgba(0, 0, 0, 0.9); border-top: 1px solid #333; display: flex; align-items: center; padding: 0 10px; font-family: 'Courier New', monospace; font-size: 0.7rem; color: #888; letter-spacing: 0.5px; }
+        .workspace-status.processing { color: #ff0000; animation: statusBlink 0.5s infinite; }
+        .download-btn { position: absolute; bottom: 5px; right: 5px; padding: 4px 8px; background: rgba(255, 0, 0, 0.8); border: 1px solid #ff0000; color: #fff; font-size: 0.7rem; cursor: pointer; border-radius: 2px; font-family: monospace; display: none; transition: all 0.2s ease; text-transform: lowercase; }
+        .download-btn:hover { background: rgba(255, 255, 255, 0.9); color: #000; transform: scale(1.05); }
+        .effects-container { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 10; }
+        .effect-btn { position: absolute; padding: 6px 14px; background: rgba(0, 0, 0, 0.85); border: 1px solid #444; color: #ccc; font-family: 'Rubik', sans-serif; font-size: 0.8rem; cursor: pointer; pointer-events: all; transition: all 0.2s ease; backdrop-filter: blur(3px); text-transform: lowercase; letter-spacing: 0.5px; font-weight: 300; }
+        .effect-btn:hover { border-color: #ff0000; background: rgba(255, 0, 0, 0.1); color: #fff; transform: scale(1.02) translateY(-1px); text-shadow: 0 0 8px rgba(255, 0, 0, 0.5); box-shadow: 0 0 15px rgba(255, 0, 0, 0.2); }
+        .effect-btn:active { transform: scale(0.98); animation: btnGlitch 0.1s; }
+        .effect-btn.active { background: rgba(255, 255, 255, 0.1); border-color: #ffffff; color: #fff; text-shadow: 0 0 10px #ffffff; }
+        .effect-btn.disabled { opacity: 0.3; pointer-events: none; }
+        .effect-tooltip { position: absolute; background: rgba(0, 0, 0, 0.95); border: 1px solid #ff0000; color: #ccc; padding: 12px; font-family: 'Courier New', monospace; font-size: 0.75rem; line-height: 1.4; max-width: 280px; z-index: 1000; opacity: 0; pointer-events: none; transition: opacity 0.3s ease; backdrop-filter: blur(5px); box-shadow: 0 0 20px rgba(255, 0, 0, 0.3), inset 0 0 10px rgba(255, 0, 0, 0.1); transform: translateY(-10px); animation: tooltipGlitch 2s infinite; }
+        .effect-tooltip.show { opacity: 1; }
+        .effect-tooltip h4 { color: #fff; font-size: 0.8rem; margin: 0 0 8px 0; text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid #333; padding-bottom: 4px; }
+        .effect-tooltip .definition { margin-bottom: 8px; }
+        .effect-tooltip .definition strong { color: #ff6666; }
+        .effect-tooltip .poetry { font-style: italic; color: #aaa; font-size: 0.7rem; line-height: 1.2; margin-top: 8px; border-top: 1px solid #333; padding-top: 6px; }
+        .effect-btn:nth-child(1) { top: 12%; left: 8%; transform: rotate(-3deg); } .effect-btn:nth-child(2) { top: 8%; left: 75%; transform: rotate(2deg); } .effect-btn:nth-child(3) { top: 22%; left: 25%; transform: rotate(-1deg); } .effect-btn:nth-child(4) { top: 19%; left: 65%; transform: rotate(4deg); } .effect-btn:nth-child(5) { top: 35%; left: 15%; transform: rotate(-2deg); } .effect-btn:nth-child(6) { top: 40%; left: 85%; transform: rotate(1deg); } .effect-btn:nth-child(7) { top: 45%; left: 45%; transform: rotate(-4deg); } .effect-btn:nth-child(8) { top: 55%; left: 20%; transform: rotate(3deg); } .effect-btn:nth-child(9) { top: 50%; left: 70%; transform: rotate(-1deg); } .effect-btn:nth-child(10) { top: 65%; left: 10%; transform: rotate(2deg); } .effect-btn:nth-child(11) { top: 70%; left: 55%; transform: rotate(-3deg); } .effect-btn:nth-child(12) { top: 75%; left: 30%; transform: rotate(1deg); } .effect-btn:nth-child(13) { top: 80%; left: 80%; transform: rotate(-2deg); } .effect-btn:nth-child(14) { top: 85%; left: 15%; transform: rotate(4deg); } .effect-btn:nth-child(15) { top: 90%; left: 60%; transform: rotate(-1deg); } .effect-btn:nth-child(16) { top: 88%; left: 40%; transform: rotate(2deg); background: rgba(100, 0, 0, 0.2); border-color: #ff0000; }
+        .status { position: fixed; bottom: 20px; left: 20px; color: #888; font-family: 'Courier New', monospace; font-size: 0.75rem; z-index: 100; background: rgba(0, 0, 0, 0.8); padding: 4px 8px; border: 1px solid #333; border-radius: 2px; letter-spacing: 0.5px; }
+        #processing-canvas { display: none; }
+        @keyframes darkScanlines { 0% { background-position: 0 0, 0 0; opacity: 1; } 50% { background-position: 0 2px, 2px 0; opacity: 0.8; } 100% { background-position: 0 4px, 4px 0; opacity: 1; } }
+        @keyframes noiseFlicker { 0%, 100% { opacity: 0.02; } 10% { opacity: 0.1; } 20% { opacity: 0.02; } 30% { opacity: 0.15; } 40%, 80% { opacity: 0.02; } 90% { opacity: 0.1; } }
+        @keyframes titleCorruption { 0%, 90%, 100% { transform: translateX(-50%); filter: contrast(1.1); } 91% { transform: translateX(-48%) translateY(1px); filter: contrast(1.3) hue-rotate(10deg); } 93% { transform: translateX(-52%) translateY(-1px); filter: contrast(0.9); } 95% { transform: translateX(-49%); filter: contrast(1.2) hue-rotate(-5deg); } }
+        @keyframes btnGlitch { 0% { transform: scale(0.98); } 25% { transform: scale(0.98) translateX(1px); } 50% { transform: scale(0.98) translateX(-1px); } 75% { transform: scale(0.98) translateY(1px); } 100% { transform: scale(0.98); } }
+        @keyframes labFlicker { 0%, 50%, 100% { box-shadow: 0 0 50px rgba(255, 0, 0, 0.3), inset 0 0 30px rgba(255, 0, 0, 0.1); } 25%, 75% { box-shadow: 0 0 80px rgba(255, 0, 0, 0.5), inset 0 0 50px rgba(255, 0, 0, 0.2); } }
+        @keyframes statusBlink { 0%, 50% { opacity: 1; } 25%, 75% { opacity: 0.3; } }
+        @keyframes tooltipGlitch { 0%, 95%, 100% { filter: none; transform: translateY(-10px); } 96% { filter: contrast(1.2) hue-rotate(5deg); transform: translateY(-10px) translateX(1px); } 98% { filter: contrast(0.8); transform: translateY(-10px) translateX(-1px); } }
+        @media (max-width: 768px) { .upload-window { width: 90%; height: 300px; } .effect-btn { font-size: 0.7rem; padding: 5px 10px; } }
+    </style>
+</head>
+<body>
+    <div class="bg-custom"></div> <div class="bg-overlay"></div> <div class="glitch-noise"></div>
+    <h1 class="main-title">arquivo<span class="line2">instável</span></h1> <p class="subtitle">ferramenta afeto-centrada</p>
+    <div class="upload-window" id="upload-window">
+        <div class="window-header"> <span class="window-title" id="window-title">arquivoinstavel.exe</span> <div class="window-controls"> <button class="control-btn minimize"></button> <button class="control-btn maximize"></button> <button class="control-btn close"></button> </div> </div>
+        <div class="work-area"> <div class="upload-dropzone" id="upload-dropzone"> <div class="upload-text"><strong>ARRASTE UMA IMAGEM AQUI</strong><br>ou clique para selecionar</div> <input type="file" class="file-input" id="file-input" accept="image/*"> </div> <div class="image-workspace" id="image-workspace"> <img class="workspace-image" id="workspace-image" alt="Workspace"> <div class="workspace-status" id="workspace-status">imagem_carregada.ok - escolha_um_afeto</div> <button class="download-btn" id="download-btn" onclick="downloadImage()">download</button> </div> </div>
+    </div>
+    <div class="effects-container">
+        <button class="effect-btn disabled" data-effect="agonia" data-tooltip="agonia">Agonia Intermitente</button> <button class="effect-btn disabled" data-effect="colapso" data-tooltip="colapso">Colapso do Sistema</button> <button class="effect-btn disabled" data-effect="desassossego" data-tooltip="desassossego">Desassossego de Interface</button> <button class="effect-btn disabled" data-effect="devaneio" data-tooltip="devaneio">Devaneio de Buffer</button> <button class="effect-btn disabled" data-effect="embriaguez" data-tooltip="embriaguez">Embriaguez de Overflow</button> <button class="effect-btn disabled" data-effect="fadiga" data-tooltip="fadiga">Fadiga de Renderização</button> <button class="effect-btn disabled" data-effect="friccao" data-tooltip="friccao">Fricção de Input</button> <button class="effect-btn disabled" data-effect="histeria" data-tooltip="histeria">Histeria de Pacotes</button> <button class="effect-btn disabled" data-effect="melancolia" data-tooltip="melancolia">Melancolia Renderizada</button> <button class="effect-btn disabled" data-effect="nausea" data-tooltip="nausea">Náusea de Scroll</button> <button class="effect-btn disabled" data-effect="paranoia" data-tooltip="paranoia">Paranoia Algorítmica</button> <button class="effect-btn disabled" data-effect="remorso" data-tooltip="remorso">Remorso em Loop</button> <button class="effect-btn disabled" data-effect="ruptura" data-tooltip="ruptura">Ruptura de Camada</button> <button class="effect-btn disabled" data-effect="solastalgia" data-tooltip="solastalgia">Solastalgia Pixelada</button> <button class="effect-btn disabled" data-effect="volupia" data-tooltip="volupia">Volúpia Vetorial</button> <button class="effect-btn disabled" data-effect="vertigem" data-tooltip="vertigem">Vertigem de Formatação</button>
+    </div>
+    <div class="effect-tooltip" id="effect-tooltip"> <h4 id="tooltip-title"></h4> <div class="definition" id="tooltip-definition"></div> <div class="poetry" id="tooltip-poetry"></div> </div>
+    <div class="status" id="status">sistema_inicializado.ok</div>
+    <canvas id="processing-canvas"></canvas>
+    
+    <script>
+        // ===================================================================
+        // ARQUIVO INSTÁVEL - VERSÃO MODULAR FINAL
+        // ===================================================================
+        
+        // --- VARIÁVEIS GLOBAIS ---
+        let classifier;
+        let modelReady = false;
+        let currentImageFile = null;
+        let originalImageData = null;
+        let processedImageData = null;
+        let selectedEffect = null;
+        let isProcessing = false;
+        
+        // --- ELEMENTOS DOM ---
+        const uploadDropzone = document.getElementById('upload-dropzone'), fileInput = document.getElementById('file-input'), imageWorkspace = document.getElementById('image-workspace'), workspaceImage = document.getElementById('workspace-image'), workspaceStatus = document.getElementById('workspace-status'), downloadBtn = document.getElementById('download-btn'), uploadWindow = document.getElementById('upload-window'), windowTitle = document.getElementById('window-title'), status = document.getElementById('status'), effectButtons = document.querySelectorAll('.effect-btn'), processingCanvas = document.getElementById('processing-canvas'), ctx = processingCanvas.getContext('2d'), tooltip = document.getElementById('effect-tooltip'), tooltipTitle = document.getElementById('tooltip-title'), tooltipDefinition = document.getElementById('tooltip-definition'), tooltipPoetry = document.getElementById('tooltip-poetry');
+
+        // --- CONFIGURAÇÕES E DADOS ---
+        const IMAGE_CONFIGS = { horizontal: { width: 500, height: 375, windowClass: 'horizontal' }, vertical: { width: 375, height: 500, windowClass: 'vertical' }, square: { width: 500, height: 500, windowClass: 'square' } };
+        const affectDatabase = {
+            vertigem: { title: "VERTIGEM DE FORMATAÇÃO", definition: `→ <strong>Vertigem</strong>: sensação de perda de equilíbrio, desorientação e instabilidade espacial ou perceptiva, frequentemente associada a movimentos bruscos, sobreposição de estímulos ou ausência de referência fixa.<br><br>→ <strong>Formatação</strong>: processo técnico de organização ou reconfiguração de dados e sistemas, geralmente com o intuito de limpar, padronizar ou restaurar a funcionalidade de uma interface, dispositivo ou arquivo digital.`, poetry: "Desalinhamento como método.<br>Memória artificial.<br>Estabilidade negada.<br>Erro é reinício." },
+            agonia: { title: "AGONIA INTERMITENTE", definition: `→ <strong>Agonia</strong>: estado extremo de desconforto físico ou emocional, caracterizado por tensão intensa, dor ou perturbação profunda, frequentemente associado a processos de esgotamento ou dissolução.<br><br>→ <strong>Intermitente</strong>: aquilo que ocorre de maneira descontínua, com interrupções regulares ou irregulares, marcado por pulsos ou oscilações entre presença e ausência.`, poetry: "Padrão quebrado. Tempo fragmentado. Desconstrução repetitiva. Irregular." },
+            colapso: { title: "COLAPSO DO SISTEMA", definition: `→ <strong>Colapso</strong>: falha súbita e irreversível no funcionamento de um sistema, resultando na interrupção completa ou no comprometimento grave de suas operações.<br><br>→ <strong>Sistema</strong>: conjunto estruturado de elementos interdependentes, regido por regras ou padrões, que busca estabilidade e previsibilidade.`, poetry: " Falha como linguagem. Erro como narrativa visual. Cor desmembrada. Distorção geométrica." },
+            desassossego: { title: "DESASSOSSEGO DE INTERFACE", definition: `→ <strong>Desassossego</strong>: estado de inquietação, desconforto ou perturbação emocional, marcado por uma sensação de instabilidade e ausência de repouso.<br><br>→ <strong>Interface</strong>: ponto de contato ou meio de interação entre sistemas distintos, como usuário e máquina, caracterizado pela organização de elementos visuais e funcionais.`, poetry: "Storytelling do desconforto. Interface perturbadora. Inquieta. Cromática errática." },
+            devaneio: { title: "DEVANEIO DE BUFFER", definition: `→ <strong>Devaneio</strong>: estado mental de divagação ou fluxo livre de pensamentos, marcado pela suspensão do foco e pelo deslocamento involuntário da atenção.<br><br>→ <strong>Buffer</strong>: área de memória temporária utilizada para armazenar dados em trânsito, geralmente para regular fluxos ou compensar diferenças de processamento, evitando falhas ou sobrecargas.`, poetry: " Pausa. Retenção. Baixa definição. Fluxo indefinido." },
+            embriaguez: { title: "EMBRIAGUEZ DE OVERFLOW", definition: `→ <strong>Embriaguez</strong>: estado de alteração sensorial e cognitiva, caracterizado por perda de controle, euforia, distorção perceptiva e movimentos oscilantes ou descoordenados.<br><br>→ <strong>Overflow</strong>: condição em sistemas computacionais em que há excesso de dados ou operações além da capacidade de armazenamento ou processamento, resultando em falhas, vazamentos ou comportamentos inesperados.`, poetry: "Colapso pelo excesso. Falha sistêmica. Bombardeada por cor. Ebriedade sensorial." },
+            fadiga: { title: "FADIGA DE RENDERIZAÇÃO", definition: `→ <strong>Fadiga</strong>: estado de exaustão física ou mental, resultante de esforço excessivo ou prolongado, levando à perda de eficiência, falhas e colapsos.<br><br>→ <strong>Renderização</strong>: processo de geração de uma imagem final a partir de dados computacionais, envolvendo cálculos complexos para definir cor, textura, luz e forma.`, poetry: "Declínio progressivo. Descontinuidade. Fragmentação. Esgotamento técnico." },
+            friccao: { title: "FRICÇÃO DE IMPUT", definition: `→ <strong>Fricção</strong>: resistência ou atrito que dificulta ou retarda um movimento ou fluxo, podendo provocar distorção, desgaste ou interrupção.<br><br>→ <strong>Imput</strong>: dado ou comando introduzido em um sistema para processamento, especialmente em ambientes digitais, onde inputs condicionam e alteram os outputs.`, poetry: " Fluxo quebrado. Deformação ondulada. Fricção conta histórias. Sucessivas interferências." },
+            histeria: { title: "HISTERIA DE PACOTES", definition: `→ <strong>Histeria</strong>: estado de excitação ou perturbação emocional extrema, marcado por reações intensas, explosivas e frequentemente descontroladas.<br><br>→ <strong>Pacotes</strong>: unidades discretas de dados transmitidas em redes digitais, que, quando mal gerenciadas ou sobrecarregadas, podem causar atrasos, perdas e falhas de comunicação.`, poetry: " Saturação sistêmica. Excesso de camadas. Instabilidade. Caos. Sobrecarga histérica de dados." },
+            nausea: { title: "NÁUSEA DE SCROLL", definition: `→ <strong>Náusea</strong>: sensação física de mal-estar e vertigem, associada a enjoo e desequilíbrio, frequentemente provocada por estímulos repetitivos ou movimentos contínuos que desorientam a percepção corporal.<br><br>→ <strong>Scroll</strong>: movimento contínuo de deslocamento vertical ou horizontal em interfaces digitais, característico da navegação contemporânea e associado à aceleração e repetição de fluxos informacionais.`, poetry: " Vertigem. Narrativa acelerada. Rastro. Instabilidade." },
+            paranoia: { title: "PARANOIA ALGORÍTMICA", definition: `→ <strong>Paranoia</strong>: estado psíquico caracterizado por desconfiança excessiva, sensação de perseguição e percepção de ameaças ocultas, frequentemente associadas a interpretações distorcidas da realidade.<br><br>→ <strong>Algorítmica</strong>: relativa aos processos automáticos de cálculo e decisão realizados por algoritmos, especialmente nas operações invisíveis que regulam fluxos e análises de dados.`, poetry: "Vigilância. Sensação deslocada. Paranoia espelhada. Escapa de si mesma. Erosão." },
+            remorso: { title: "REMORSO EM LOOP", definition: `→ <strong>Remorso</strong>: sentimento de culpa ou arrependimento profundo, decorrente da percepção de um erro ou falha irreparável, frequentemente acompanhado por repetição mental incessante do ocorrido.<br><br>→ <strong>Loop</strong>: estrutura computacional ou lógica caracterizada pela repetição contínua de uma sequência de ações, podendo, em contexto negativo, gerar redundância, bloqueio ou aprisionamento.`, poetry: "Repetição infinita. Deformação recorrente. Remorso mecânico. Desgaste." },
+            ruptura: { title: "RUPTURA DE CAMADA", definition: `→ <strong>Ruptura</strong>: quebra ou interrupção abrupta na continuidade de uma estrutura ou processo, geralmente provocando desorganização, fragmentação ou colapso.<br><br>→ <strong>Camada</strong>: nível ou estrato em uma estrutura organizada, especialmente em sistemas visuais e computacionais, onde diferentes planos ou componentes se sobrepõem ou interagem.`, poetry: "Plano disperso. Deslocamento agressivo. Desmembramento. Quebra na coesão. Não linear. Camada independente." },
+            solastalgia: { title: "SOLASTALGIA PIXELIZADA", definition: `→ <strong>Solastalgia</strong>: neologismo que descreve o sofrimento psíquico causado pela transformação ou degradação ambiental, expressando a angústia de viver em um lugar que está sendo irrevogavelmente alterado.<br><br>→ <strong>Pixelizada</strong>: referência ao processo digital de divisão de uma imagem em blocos quadrados de baixa resolução, resultando em perda de definição, fragmentação estética e artificialidade visual.`, poetry: "Degradação irreversível. Vestígio. Perda. Baixa resolução." },
+            volupia: { title: "VOLÚPIA VETORIAL", definition: `→ <strong>Volúpia</strong>: estado de prazer intenso e sensualidade exacerbada, associado ao deleite sensorial e à busca hedonista da estética e da sensação.<br><br>→ <strong>Vetorial</strong>: relativo a imagens produzidas ou manipuladas por vetores matemáticos, frequentemente associadas a uma aparência gráfica limpa, estilizada e geometricamente precisa.`, poetry: "Erro estético. Rigor vetorial. Artificialmente calculada." },
+            melancolia: { title: "MELANCOLIA RENDERIZADA", definition: `→ <strong>Melancolia</strong>: tristeza profunda e reflexiva, nostalgia de um passado perdido ou futuro inalcançável.<br><br>→ <strong>Renderizada</strong>: processada e exibida através de algoritmos computacionais.`, poetry: "Tristeza em escala de cinza.<br>Nostalgia processada.<br>Memória comprimida.<br>Lágrimas em baixa resolução." }
+        };
+
+        // ===================================================================
+        // SISTEMA MODULAR DE EFEITOS
+        // ===================================================================
+
+        const effectScripts = {
+            'agonia': './agonia.js',
+            'colapso': './colapso.js',
+            'desassossego': './desassossego.js',
+            'devaneio': './devaneio.js',
+            'embriaguez': './embriaguez.js',
+            'fadiga': './fadiga.js',
+            'friccao': './friccao.js',
+            'histeria': './histeria.js',
+            'melancolia': './melancolia.js',
+            'nausea': './nausea.js',
+            'paranoia': './paranoia.js',
+            'remorso': './remorso.js',
+            'ruptura': './ruptura.js',
+            'solastalgia': './solastalgia.js',
+            'volupia': './volupia.js'
+        };
+        const loadedScripts = new Set();
+
+        function loadEffectScript(effectName) {
+            return new Promise((resolve, reject) => {
+                if (loadedScripts.has(effectName) || !effectScripts[effectName]) {
+                    resolve(); return;
+                }
+                const scriptPath = effectScripts[effectName];
+                const script = document.createElement('script');
+                script.onload = () => { console.log(`✅ Script ${effectName} carregado.`); loadedScripts.add(effectName); resolve(); };
+                script.onerror = () => {
+                    const errorMessage = `ERRO: Não encontrei o arquivo ${scriptPath}. Verifique se ele está na mesma pasta do index.html.`;
+                    console.error(errorMessage);
+                    reject(new Error(errorMessage));
+                };
+                script.src = scriptPath;
+                document.head.appendChild(script);
+            });
+        }
+
+        // ===================================================================
+        // FLUXO PRINCIPAL
+        // ===================================================================
+
+        window.addEventListener('load', init);
+
+        function init() {
+            updateStatus('carregando_modelo_ia...');
+            setTimeout(() => {
+                if (typeof ml5 !== 'undefined') {
+                    try { classifier = ml5.imageClassifier('https://teachablemachine.withgoogle.com/models/R9OlJbMZ7/model.json', modelLoaded); } 
+                    catch (error) { console.error('❌ Erro ao carregar modelo:', error); updateStatus('erro_modelo_ia'); modelReady = false; }
+                } else { console.error('❌ ML5.js não carregou'); updateStatus('erro_ml5.js'); modelReady = false; }
+            }, 1000);
+            setupEventListeners();
+        }
+
+        function modelLoaded() {
+            modelReady = true;
+            updateStatus('sistema_pronto.ok - ia_funcionando');
+        }
+
+        function setupEventListeners() {
+            uploadDropzone.addEventListener('click', () => fileInput.click());
+            uploadDropzone.addEventListener('dragover', (e) => { e.preventDefault(); uploadDropzone.classList.add('dragover'); });
+            uploadDropzone.addEventListener('dragleave', () => uploadDropzone.classList.remove('dragover'));
+            uploadDropzone.addEventListener('drop', (e) => { e.preventDefault(); uploadDropzone.classList.remove('dragover'); const files = e.dataTransfer.files; if (files.length > 0) handleFile(files[0]); });
+            fileInput.addEventListener('change', (e) => { const file = e.target.files[0]; if (file) handleFile(file); });
+            effectButtons.forEach(btn => {
+                btn.addEventListener('click', () => { if (!btn.classList.contains('disabled')) selectEffect(btn.dataset.effect); });
+                btn.addEventListener('mouseenter', (e) => showTooltip(e, btn.dataset.tooltip));
+                btn.addEventListener('mouseleave', hideTooltip);
+                btn.addEventListener('mousemove', (e) => positionTooltip(e));
+            });
+            document.addEventListener('keydown', handleKeyPress);
+        }
+
+        function handleFile(file) {
+            if (!file.type.startsWith('image/')) { updateWorkspaceStatus('erro_tipo_arquivo.invalid', true); return; }
+            currentImageFile = file;
+            updateStatus('carregando_imagem...');
+            updateWorkspaceStatus('carregando_imagem...', false);
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const img = new Image();
+                img.onload = () => {
+                    originalImageData = resizeImageToStandard(img);
+                    switchToWorkspace(originalImageData);
+                    enableEffectButtons();
+                    updateStatus('imagem_padronizada.ok');
+                    updateWorkspaceStatus('imagem_redimensionada.ok - escolha_um_afeto', false);
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        async function selectEffect(effectName) {
+            if (isProcessing || !originalImageData) return;
+            effectButtons.forEach(btn => btn.classList.remove('active'));
+            document.querySelector(`[data-effect="${effectName}"]`).classList.add('active');
+            selectedEffect = effectName;
+            updateStatus(`carregando_${effectName}...`);
+            try {
+                await loadEffectScript(effectName);
+                applyEffect(effectName);
+            } catch (error) {
+                updateWorkspaceStatus(error.message, true);
+                finishProcessing();
+            }
+        }
+        
+        function applyEffect(effectName) {
+            isProcessing = true;
+            uploadWindow.classList.add('processing');
+            updateWorkspaceStatus(`processando_${effectName}...`, true);
+
+            setTimeout(() => {
+                // Prepara o canvas para o efeito
+                processingCanvas.width = originalImageData.width;
+                processingCanvas.height = originalImageData.height;
+                ctx.drawImage(originalImageData, 0, 0);
+
+                if (effectName === 'vertigem') {
+                    // Vertigem é especial e tem sua própria lógica assíncrona
+                    applyVertigemWithAI();
+                } else {
+                    // Para todos os outros efeitos modulares
+                    const functionName = `aplicar${effectName.charAt(0).toUpperCase() + effectName.slice(1)}`;
+                    if (typeof window[functionName] === 'function') {
+                        console.log(`🎭 Aplicando ${effectName} via script externo`);
+                        // A função do script externo modifica o canvas
+                        window[functionName](ctx, processingCanvas);
+                        // Finaliza o processo, mostrando a imagem do canvas modificado
+                        finishEffectProcessing(effectName);
+                    } else {
+                        // Fallback se a função não for encontrada no script carregado
+                        updateWorkspaceStatus(`ERRO: Função ${functionName} não encontrada.`, true);
+                        finishProcessing();
+                    }
+                }
+            }, 50); 
+        }
+
+        function finishEffectProcessing(effectName) {
+            const processedDataURL = processingCanvas.toDataURL('image/png');
+            workspaceImage.src = processedDataURL;
+            processedImageData = processedDataURL;
+            downloadBtn.style.display = 'block';
+            updateWorkspaceStatus(`${effectName}_aplicado.ok`, false);
+            finishProcessing();
+        }
+        
+        function finishProcessing() {
+            isProcessing = false;
+            uploadWindow.classList.remove('processing');
+        }
+
+        // ===================================================================
+        // LÓGICA DO EFEITO VERTIGEM (INTERNA E INTOCADA)
+        // ===================================================================
+
+        function applyVertigemWithAI() {
+            if (!modelReady) { updateWorkspaceStatus('erro_modelo_ia.not_ready', true); finishProcessing(); return; }
+            updateWorkspaceStatus('analisando_normatividade...', true);
+            classifier.classify(workspaceImage, (error, results) => {
+                let actualResults = results || (Array.isArray(error) ? error : []);
+                if (actualResults.length === 0) { updateWorkspaceStatus('erro_classificacao_ia', true); finishProcessing(); return; }
+                let instaveisScore = 0;
+                actualResults.forEach(result => { if (result.label.toLowerCase().includes('instav')) instaveisScore = result.confidence; });
+                const intensity = (instaveisScore <= 0.25) ? 100 : (instaveisScore <= 0.75) ? 65 : 25;
+                
+                // Vertigem precisa de pixels nítidos, diferente de Agonia
+                ctx.imageSmoothingEnabled = false;
+                ctx.drawImage(originalImageData, 0, 0);
+
+                aplicarPixelSortP5JS(intensity);
+                aplicarPapelRasgadoP5JS(intensity);
+                aplicarScanlinesP5JS(intensity);
+                finishEffectProcessing('vertigem');
+            });
+        }
+        
+        // As funções abaixo são usadas APENAS pelo Vertigem
+        function aplicarPixelSortP5JS(intensity){ const threshold = intensity === 100 ? 60 : intensity === 65 ? 78 : 120; const imageData = ctx.getImageData(0, 0, processingCanvas.width, processingCanvas.height); const data = imageData.data; const width = processingCanvas.width; const height = processingCanvas.height; for (let x = 0; x < width; x++) { let y = 0; while (y < height) { let startY = y; while (startY < height) { let pixelIndex = (startY * width + x) * 4; let brightness = (data[pixelIndex] + data[pixelIndex+1] + data[pixelIndex+2]) / 3; if (brightness > threshold) break; startY++; } let endY = startY; while (endY < height) { let pixelIndex = (endY * width + x) * 4; let brightness = (data[pixelIndex] + data[pixelIndex+1] + data[pixelIndex+2]) / 3; if (brightness <= threshold) break; endY++; } if (endY > startY) { let segment = []; for (let i = startY; i < endY; i++) { let pixelIndex = (i * width + x) * 4; segment.push({ r: data[pixelIndex], g: data[pixelIndex+1], b: data[pixelIndex+2], a: data[pixelIndex+3], brightness: (data[pixelIndex]+data[pixelIndex+1]+data[pixelIndex+2])/3 }); } segment.sort((a,b) => a.brightness - b.brightness); for (let i=0; i < segment.length; i++) { let pixelIndex = ((startY + i) * width + x) * 4; data[pixelIndex] = segment[i].r; data[pixelIndex+1] = segment[i].g; data[pixelIndex+2] = segment[i].b; data[pixelIndex+3] = segment[i].a; } } y = endY + 1; } } ctx.putImageData(imageData, 0, 0); }
+        function aplicarPapelRasgadoP5JS(intensity){ const gridSize = intensity === 100 ? 3 : intensity === 65 ? 4 : 6; const noiseScale = intensity === 100 ? 0.3 : 0.1; const shredThreshold = intensity === 100 ? 0.45 : intensity === 65 ? 0.4 : 0.29; const imageData = ctx.getImageData(0,0,processingCanvas.width,processingCanvas.height); const data = imageData.data; for (let i=0; i<data.length; i+=4) { let gray = (data[i]+data[i+1]+data[i+2])/3; data[i]=gray; data[i+1]=gray; data[i+2]=gray; } ctx.putImageData(imageData,0,0); ctx.fillStyle = '#ffffff'; const cols = processingCanvas.width/gridSize; const rows = processingCanvas.height/gridSize; for (let i=0; i<cols; i++) { for (let j=0; j<rows; j++) { let noiseValue = noise(i * noiseScale, j * noiseScale); if (noiseValue < shredThreshold) { ctx.fillRect(i*gridSize, j*gridSize, gridSize, gridSize); } } } }
+        function aplicarScanlinesP5JS(intensity){ let lineHeight, opacity, interference, colorShift; if(intensity===100){lineHeight=2;opacity=120;interference=0.4;colorShift=8;}else if(intensity===65){lineHeight=4;opacity=80;interference=0.2;colorShift=4;}else{lineHeight=6;opacity=40;interference=0.1;colorShift=2;} const imageData = ctx.getImageData(0,0,processingCanvas.width,processingCanvas.height); const data = imageData.data; const width = processingCanvas.width; const height = processingCanvas.height; for (let y=0; y<height; y+=lineHeight) { for (let x=0; x<width; x++) { let index=(x+y*width)*4; if(index<data.length){data[index]=Math.max(0,data[index]-opacity);data[index+1]=Math.max(0,data[index+1]-opacity);data[index+2]=Math.max(0,data[index+2]-opacity);} } } for (let i=0; i<data.length; i+=4) { if(Math.random()<interference){let noise=(Math.random()-0.5)*60;data[i]=Math.max(0,Math.min(255,data[i]+noise));data[i+1]=Math.max(0,Math.min(255,data[i+1]+noise));data[i+2]=Math.max(0,Math.min(255,data[i+2]+noise));} } if(colorShift > 0){ let originalPixels = new Uint8ClampedArray(data); for (let y=0; y<height; y++){ for (let x=0; x<width; x++) { let index=(x+y*width)*4; let redX=Math.max(0,Math.min(width-1,x+colorShift)); let redIndex=(redX+y*width)*4; let blueX=Math.max(0,Math.min(width-1,x-colorShift)); let blueIndex=(blueX+y*width)*4; data[index]=originalPixels[redIndex]; data[index+2]=originalPixels[blueIndex+2]; } } } ctx.putImageData(imageData,0,0); }
+        const permutation = [ 151,160,137,91,90,15,131,13,201,95,96,53,194,233,7,225,140,36,103,30,69,142,8,99,37,240,21,10,23,190, 6,148,247,120,234,75,0,26,197,62,94,252,219,203,117,35,11,32,57,177,33,88,237,149,56,87,174,20,125,136,171,168, 68,175,74,165,71,134,139,48,27,166, 77,146,158,231,83,111,229,122,60,211,133,230,220,105,92,41,55,46,245,40,244,102,143,54, 65,25,63,161, 1,216,80,73,209,76,132,187,208, 89,18,169,200,196,135,130,116,188,159,86,164,100,109,198,173,186, 3,64,52,217,226,250,124,123,5,202,38,147,118,126,255,82,85,212,207,206,59,227,47,16,58,17,182,189,28,42, 223,183,170,213,119,248,152, 2,44,154,163, 70,221,153,101,155,167, 43,172,9,129,22,39,253, 19,98,108,110,79,113,224,232,178,185, 112,104,218,246,97,228,251,34,242,193,238,210,144,12,191,179,162,241, 81,51,145,235,249,14,239,107,49,192,214, 31,181,199,106,157,184, 84,204,176,115,121,50,45,127, 4,150,254,138,236,205,93,222,114,67,29,24,72,243,141,128,195,78,66,215,61,156,180 ];
+        const p = [...permutation, ...permutation];
+        function fade(t) { return t * t * t * (t * (t * 6 - 15) + 10); }
+        function lerp(a, b, t) { return a + t * (b - a); }
+        function grad(hash, x, y) { const h = hash & 15; const u = h < 8 ? x : y; const v = h < 4 ? y : h === 12 || h === 14 ? x : 0; return ((h & 1) === 0 ? u : -u) + ((h & 2) === 0 ? v : -v); }
+        function perlinNoise(x, y) { const X = Math.floor(x) & 255; const Y = Math.floor(y) & 255; x -= Math.floor(x); y -= Math.floor(y); const u = fade(x); const v = fade(y); const A = p[X] + Y, AA = p[A], AB = p[A + 1], B = p[X + 1] + Y, BA = p[B], BB = p[B + 1]; return lerp(lerp(grad(p[AA], x, y), grad(p[BA], x - 1, y), u), lerp(grad(p[AB], x, y - 1), grad(p[BB], x - 1, y - 1), u), v); }
+        function noise(x, y) { return (perlinNoise(x, y) + 1) / 2; }
+        
+        // ===================================================================
+        // FUNÇÕES UTILITÁRIAS E DE UI
+        // ===================================================================
+
+        function resizeImageToStandard(sourceImg) {
+            const aspectRatio = sourceImg.width / sourceImg.height;
+            let config;
+            if (Math.abs(aspectRatio - 1) < 0.1) { config = IMAGE_CONFIGS.square; } else if (aspectRatio > 1) { config = IMAGE_CONFIGS.horizontal; } else { config = IMAGE_CONFIGS.vertical; }
+            uploadWindow.className = 'upload-window ' + config.windowClass;
+            const tempCanvas = document.createElement('canvas');
+            const tempCtx = tempCanvas.getContext('2d');
+            tempCanvas.width = config.width;
+            tempCanvas.height = config.height;
+            // AQUI ESTÁ A CHAVE: true para Agonia, mas Vertigem precisa de false.
+            // A lógica de cada efeito agora controla isso internamente.
+            tempCtx.imageSmoothingEnabled = true; 
+            tempCtx.drawImage(sourceImg, 0, 0, config.width, config.height);
+            const resizedImg = new Image();
+            resizedImg.width = config.width;
+            resizedImg.height = config.height;
+            resizedImg.src = tempCanvas.toDataURL('image/png');
+            return resizedImg;
+        }
+
+        function switchToWorkspace(img) { uploadDropzone.style.display = 'none'; imageWorkspace.style.display = 'flex'; workspaceImage.src = img.src; windowTitle.textContent = 'arquivoinstavel.exe'; }
+        function enableEffectButtons() { effectButtons.forEach(btn => btn.classList.remove('disabled')); }
+        function showTooltip(event, affectKey) { const affectData = affectDatabase[affectKey]; if (!affectData) return; tooltipTitle.textContent = affectData.title; tooltipDefinition.innerHTML = affectData.definition; tooltipPoetry.innerHTML = affectData.poetry; positionTooltip(event); tooltip.classList.add('show'); }
+        function hideTooltip() { tooltip.classList.remove('show'); }
+        function positionTooltip(event) { const rect = tooltip.getBoundingClientRect(); let x = event.clientX + 15, y = event.clientY - 10; if (x + rect.width > window.innerWidth) x = event.clientX - rect.width - 15; if (y + rect.height > window.innerHeight) y = event.clientY - rect.height - 10; x += (Math.random() - 0.5) * 4; y += (Math.random() - 0.5) * 4; tooltip.style.left = x + 'px'; tooltip.style.top = y + 'px'; }
+        function updateWorkspaceStatus(message, isProcessing) { workspaceStatus.textContent = message; workspaceStatus.classList.toggle('processing', isProcessing); }
+        function updateStatus(message) { status.textContent = message; console.log('Status:', message); }
+        function downloadImage() { if (!processedImageData) return; const link = document.createElement('a'); link.download = `arquivo_instavel_${selectedEffect}_${Date.now()}.png`; link.href = processedImageData; link.click(); }
+        function resetToOriginal() { if (originalImageData) { workspaceImage.src = originalImageData.src; processedImageData = null; downloadBtn.style.display = 'none'; updateWorkspaceStatus('imagem_original_restaurada', false); effectButtons.forEach(btn => btn.classList.remove('active')); selectedEffect = null; } }
+        function resetInterface() { uploadDropzone.style.display = 'flex'; imageWorkspace.style.display = 'none'; windowTitle.textContent = 'arquivoinstavel.exe'; uploadWindow.className = 'upload-window'; currentImageFile = null; originalImageData = null; processedImageData = null; selectedEffect = null; effectButtons.forEach(btn => { btn.classList.add('disabled'); btn.classList.remove('active'); }); processingCanvas.width = 0; processingCanvas.height = 0; updateStatus('interface_resetada.ok'); }
+
+    </script>
+</body>
+</html>
