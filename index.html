@@ -375,10 +375,7 @@
         function applyVertigemWithAI() {
             if (!modelReady) { updateWorkspaceStatus('erro_modelo_ia.not_ready', true); finishProcessing(); return; }
             updateWorkspaceStatus('analisando_normatividade...', true);
-            const tempImg = new Image(); 
-            tempImg.crossOrigin = "anonymous";  // Importante para CORS! 
-            tempImg.onload = function() {     
-                classifier.classify(tempImg, (error, results) => {
+            classifier.classify(workspaceImage, (error, results) => {
                 let actualResults = results || (Array.isArray(error) ? error : []);
                 if (actualResults.length === 0) { updateWorkspaceStatus('erro_classificacao_ia', true); finishProcessing(); return; }
                 let instaveisScore = 0;
@@ -446,4 +443,3 @@
     </script>
 </body>
 </html>
-
