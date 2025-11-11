@@ -154,7 +154,43 @@
     width: fit-content;
   }
 }
+/* CORREÇÃO PARA DIFERENTES TELAS - Arquivo Instável */
+/* Cola isso ANTES do </style> */
 
+.glitch-title {
+    z-index: 10;
+    min-width: 600px;
+    white-space: nowrap;
+}
+
+.subtitle {
+    z-index: 9;
+    position: relative;
+    margin-top: 10px;
+}
+
+.effect-btn {
+    z-index: 5;
+    position: relative !important;
+}
+
+.upload-window {
+    z-index: 3;
+    max-width: 90vw;
+}
+
+/* Para telas menores */
+@media screen and (max-width: 1366px) {
+    .glitch-title {
+        font-size: 4.5rem;
+    }
+    
+    .effect-btn {
+        margin: 2px;
+    }
+}
+
+        
     </style>
 </head>
 <body>
@@ -443,4 +479,5 @@
     </script>
 </body>
 </html>
+
 
