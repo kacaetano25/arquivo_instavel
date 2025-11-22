@@ -10,52 +10,157 @@
     <link href="https://fonts.googleapis.com/css2?family=Rubik+Glitch&family=Rubik:wght@300;400;500;700&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/ml5@0.12.2/dist/ml5.min.js"></script>
     
-    <style>
+   <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Rubik', sans-serif; background: #000; overflow-x: hidden; cursor: crosshair; }
+        body { font-family: 'Rubik', sans-serif; background: #000; overflow: hidden; cursor: crosshair; height: 100vh; width: 100vw; }
+        
+        /* --- FUNDOS --- */
         .bg-custom { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background-image: url('bg-glitch.jpg'); background-size: cover; background-position: center; opacity: 0.4; z-index: -3; filter: contrast(1.2) brightness(0.7); }
-        .bg-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: repeating-linear-gradient( 0deg, transparent, transparent 3px, rgba(255, 255, 255, 0.08) 3px, rgba(255, 255, 255, 0.08) 4px ), repeating-linear-gradient( 90deg, transparent, transparent 150px, rgba(255, 255, 255, 0.03) 150px, rgba(255, 255, 255, 0.03) 152px ); z-index: -2; animation: darkScanlines 0.12s infinite; }
-        .glitch-noise { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; opacity: 0.05; z-index: -1; background: radial-gradient(circle at 10% 20%, rgba(255, 0, 0, 0.1) 0%, transparent 50%), radial-gradient(circle at 90% 80%, rgba(255, 255, 255, 0.05) 0%, transparent 50%); animation: noiseFlicker 0.1s infinite; }
-        .main-title { position: absolute; top: 5%; left: 47%; transform: translateX(-50%); font-family: 'Rubik Glitch', cursive; font-size: clamp(2rem, 8vw, 6rem); color: #ddd; text-align: left; z-index: 100; text-shadow: 1px 0 #aa0000, -1px 0 #cccccc, 0 1px rgba(255, 255, 255, 0.3); animation: titleCorruption 3s infinite; filter: contrast(1.1); text-transform: lowercase; line-height: 0.9; }
-        .main-title .line2 { transform: translateX(25px); display: block; }
-        .subtitle { position: absolute; top: 18%; left: 50%; transform: translateX(-50%); font-family: 'Rubik', sans-serif; font-size: 1.2rem; color: #999; text-align: center; font-weight: 300; letter-spacing: 2px; z-index: 90; opacity: 0.8; }
-        .upload-window { position: absolute; top: 25%; left: 50%; transform: translateX(-50%); width: 450px; height: 350px; background: rgba(10, 10, 10, 0.95); border: 1px solid #333; border-radius: 4px; box-shadow: 0 0 30px rgba(0, 0, 0, 0.8), inset 0 0 20px rgba(255, 0, 0, 0.05); z-index: 50; backdrop-filter: blur(10px); transition: all 0.3s ease; }
+        .bg-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: repeating-linear-gradient( 0deg, transparent, transparent 3px, rgba(255, 255, 255, 0.08) 3px, rgba(255, 255, 255, 0.08) 4px ), repeating-linear-gradient( 90deg, transparent, transparent 150px, rgba(255, 255, 255, 0.03) 150px, rgba(255, 255, 255, 0.03) 152px ); z-index: -2; animation: darkScanlines 0.12s infinite; pointer-events: none; }
+        .glitch-noise { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; opacity: 0.05; z-index: -1; background: radial-gradient(circle at 10% 20%, rgba(255, 0, 0, 0.1) 0%, transparent 50%), radial-gradient(circle at 90% 80%, rgba(255, 255, 255, 0.05) 0%, transparent 50%); animation: noiseFlicker 0.1s infinite; pointer-events: none; }
+
+        /* --- CABEÇALHO (TÍTULO E SUBTÍTULO) --- */
+        /* Agrupamos visualmente para evitar sobreposição */
+        .main-title { 
+            position: absolute; 
+            top: 4vh; /* Usa altura da tela, não % */
+            left: 50%; 
+            transform: translateX(-50%); 
+            font-family: 'Rubik Glitch', cursive; 
+            font-size: clamp(3rem, 6vw, 5.5rem); /* Limite máximo menor para não explodir */
+            color: #ddd; 
+            text-align: center; 
+            z-index: 20; /* Z-index menor que a janela */
+            text-shadow: 1px 0 #aa0000, -1px 0 #cccccc, 0 1px rgba(255, 255, 255, 0.3); 
+            animation: titleCorruption 3s infinite; 
+            filter: contrast(1.1); 
+            text-transform: lowercase; 
+            line-height: 1.1; 
+            white-space: nowrap;
+            width: 100%;
+        }
+        .main-title .line2 { display: inline-block; margin-left: 15px; }
+        
+        .subtitle { 
+            position: absolute; 
+            top: 14vh; /* Distância segura do título */
+            left: 50%; 
+            transform: translateX(-50%); 
+            font-family: 'Rubik', sans-serif; 
+            font-size: clamp(0.9rem, 1.5vw, 1.2rem); 
+            color: #999; 
+            text-align: center; 
+            font-weight: 300; 
+            letter-spacing: 4px; 
+            z-index: 19; 
+            opacity: 0.8; 
+            width: 100%;
+            margin-top: 10px;
+        }
+
+        /* --- JANELA PRINCIPAL --- */
+        .upload-window { 
+            position: absolute; 
+            top: 55%; /* Um pouco abaixo do meio para compensar o título */
+            left: 50%; 
+            transform: translate(-50%, -50%); /* Centralização perfeita */
+            width: 450px; 
+            height: 350px; 
+            background: rgba(10, 10, 10, 0.95); 
+            border: 1px solid #333; 
+            border-radius: 4px; 
+            box-shadow: 0 0 30px rgba(0, 0, 0, 0.8), inset 0 0 20px rgba(255, 0, 0, 0.05); 
+            z-index: 100; /* Garante que fique acima dos botões */
+            backdrop-filter: blur(10px); 
+            transition: all 0.3s ease; 
+        }
         .upload-window.horizontal { width: 520px; height: 400px; }
         .upload-window.vertical { width: 400px; height: 520px; }
         .upload-window.square { width: 520px; height: 520px; }
         .upload-window.processing { border-color: #ff0000; box-shadow: 0 0 50px rgba(255, 0, 0, 0.3), inset 0 0 30px rgba(255, 0, 0, 0.1); animation: labFlicker 0.5s infinite; }
+
+        /* --- INTERIOR DA JANELA --- */
         .window-header { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: rgba(20, 20, 20, 0.9); border-bottom: 1px solid #444; border-radius: 3px 3px 0 0; }
         .window-title { color: #ccc; font-size: 0.85rem; font-weight: 400; font-family: monospace; }
         .window-controls { display: flex; gap: 6px; }
         .control-btn { width: 10px; height: 10px; border-radius: 50%; border: none; cursor: pointer; opacity: 0.7; }
         .minimize { background: #666; } .maximize { background: #888; } .close { background: #aa0000; }
         .work-area { height: calc(100% - 40px); position: relative; margin: 15px; border: 1px dashed #555; border-radius: 2px; background: rgba(5, 5, 5, 0.5); overflow: hidden; }
-        .upload-dropzone { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; cursor: pointer; transition: all 0.3s ease; }
+        .upload-dropzone { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; cursor: pointer; transition: all 0.3s ease; z-index: 101; }
         .upload-dropzone:hover { border-color: #ff0000; background: rgba(255, 0, 0, 0.03); }
         .upload-dropzone.dragover { border-color: #ffffff; background: rgba(255, 255, 255, 0.05); }
         .upload-text { color: #aaa; text-align: center; font-size: 0.9rem; margin-bottom: 10px; }
         .file-input { display: none; }
-        .image-workspace { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: none; flex-direction: column; }
+        .image-workspace { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: none; flex-direction: column; z-index: 102; }
         .workspace-image { flex: 1; width: 100%; object-fit: contain; background: #111; }
         .workspace-status { height: 30px; background: rgba(0, 0, 0, 0.9); border-top: 1px solid #333; display: flex; align-items: center; padding: 0 10px; font-family: 'Courier New', monospace; font-size: 0.7rem; color: #888; letter-spacing: 0.5px; }
         .workspace-status.processing { color: #ff0000; animation: statusBlink 0.5s infinite; }
         .download-btn { position: absolute; bottom: 5px; right: 5px; padding: 4px 8px; background: rgba(255, 0, 0, 0.8); border: 1px solid #ff0000; color: #fff; font-size: 0.7rem; cursor: pointer; border-radius: 2px; font-family: monospace; display: none; transition: all 0.2s ease; text-transform: lowercase; }
         .download-btn:hover { background: rgba(255, 255, 255, 0.9); color: #000; transform: scale(1.05); }
-        .effects-container { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 10; }
-        .effect-btn { position: absolute; padding: 6px 14px; background: rgba(0, 0, 0, 0.85); border: 1px solid #444; color: #ccc; font-family: 'Rubik', sans-serif; font-size: 0.8rem; cursor: pointer; pointer-events: all; transition: all 0.2s ease; backdrop-filter: blur(3px); text-transform: lowercase; letter-spacing: 0.5px; font-weight: 300; }
-        .effect-btn:hover { border-color: #ff0000; background: rgba(255, 0, 0, 0.1); color: #fff; transform: scale(1.02) translateY(-1px); text-shadow: 0 0 8px rgba(255, 0, 0, 0.5); box-shadow: 0 0 15px rgba(255, 0, 0, 0.2); }
+
+        /* --- BOTÕES DE EFEITO (RE-POSICIONADOS PARA AS BORDAS) --- */
+        .effects-container { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 50; }
+        .effect-btn { 
+            position: absolute; 
+            padding: 6px 14px; 
+            background: rgba(0, 0, 0, 0.85); 
+            border: 1px solid #444; 
+            color: #ccc; 
+            font-family: 'Rubik', sans-serif; 
+            font-size: 0.8rem; 
+            cursor: pointer; 
+            pointer-events: all; /* Importante para clicar */
+            transition: all 0.2s ease; 
+            backdrop-filter: blur(3px); 
+            text-transform: lowercase; 
+            letter-spacing: 0.5px; 
+            font-weight: 300; 
+            white-space: nowrap;
+        }
+        .effect-btn:hover { border-color: #ff0000; background: rgba(255, 0, 0, 0.1); color: #fff; transform: scale(1.02) translateY(-1px); text-shadow: 0 0 8px rgba(255, 0, 0, 0.5); box-shadow: 0 0 15px rgba(255, 0, 0, 0.2); z-index: 150; }
         .effect-btn:active { transform: scale(0.98); animation: btnGlitch 0.1s; }
         .effect-btn.active { background: rgba(255, 255, 255, 0.1); border-color: #ffffff; color: #fff; text-shadow: 0 0 10px #ffffff; }
         .effect-btn.disabled { opacity: 0.3; pointer-events: none; }
-        .effect-tooltip { position: absolute; background: rgba(0, 0, 0, 0.95); border: 1px solid #ff0000; color: #ccc; padding: 12px; font-family: 'Courier New', monospace; font-size: 0.75rem; line-height: 1.4; max-width: 280px; z-index: 1000; opacity: 0; pointer-events: none; transition: opacity 0.3s ease; backdrop-filter: blur(5px); box-shadow: 0 0 20px rgba(255, 0, 0, 0.3), inset 0 0 10px rgba(255, 0, 0, 0.1); transform: translateY(-10px); animation: tooltipGlitch 2s infinite; }
+
+        /* POSICIONAMENTO ESTRATÉGICO NAS BORDAS (Longe do centro) */
+        /* Esquerda Superior */
+        .effect-btn:nth-child(1) { top: 15%; left: 5%; transform: rotate(-3deg); }
+        .effect-btn:nth-child(3) { top: 25%; left: 12%; transform: rotate(-1deg); } 
+        .effect-btn:nth-child(5) { top: 35%; left: 5%; transform: rotate(-2deg); }
+        .effect-btn:nth-child(8) { top: 45%; left: 10%; transform: rotate(3deg); }
+
+        /* Esquerda Inferior */
+        .effect-btn:nth-child(10) { top: 65%; left: 5%; transform: rotate(2deg); }
+        .effect-btn:nth-child(14) { top: 78%; left: 12%; transform: rotate(4deg); }
+
+        /* Direita Superior */
+        .effect-btn:nth-child(2) { top: 15%; right: 5%; left: auto; transform: rotate(2deg); text-align: right;} 
+        .effect-btn:nth-child(4) { top: 25%; right: 12%; left: auto; transform: rotate(4deg); } 
+        .effect-btn:nth-child(6) { top: 35%; right: 5%; left: auto; transform: rotate(1deg); }
+        .effect-btn:nth-child(9) { top: 48%; right: 10%; left: auto; transform: rotate(-1deg); }
+
+        /* Direita Inferior */
+        .effect-btn:nth-child(13) { top: 68%; right: 5%; left: auto; transform: rotate(-2deg); }
+        .effect-btn:nth-child(15) { top: 80%; right: 12%; left: auto; transform: rotate(-1deg); }
+
+        /* Topo e Fundo (Centralizados mas longe da janela) */
+        .effect-btn:nth-child(7) { top: 88%; left: 40%; transform: rotate(-4deg); } 
+        .effect-btn:nth-child(11) { top: 88%; left: 60%; transform: rotate(-3deg); }
+        .effect-btn:nth-child(12) { top: 92%; left: 50%; transform: translateX(-50%) rotate(1deg); } 
+        .effect-btn:nth-child(16) { top: 22%; left: 80%; transform: rotate(2deg); border-color: #ff0000; color: #ff6666; } /* Botão especial */
+
+        /* --- TOOLTIP E STATUS --- */
+        .effect-tooltip { position: fixed; background: rgba(0, 0, 0, 0.95); border: 1px solid #ff0000; color: #ccc; padding: 12px; font-family: 'Courier New', monospace; font-size: 0.75rem; line-height: 1.4; max-width: 280px; z-index: 1000; opacity: 0; pointer-events: none; transition: opacity 0.3s ease; backdrop-filter: blur(5px); box-shadow: 0 0 20px rgba(255, 0, 0, 0.3), inset 0 0 10px rgba(255, 0, 0, 0.1); transform: translateY(-10px); animation: tooltipGlitch 2s infinite; }
         .effect-tooltip.show { opacity: 1; }
         .effect-tooltip h4 { color: #fff; font-size: 0.8rem; margin: 0 0 8px 0; text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid #333; padding-bottom: 4px; }
         .effect-tooltip .definition { margin-bottom: 8px; }
         .effect-tooltip .definition strong { color: #ff6666; }
         .effect-tooltip .poetry { font-style: italic; color: #aaa; font-size: 0.7rem; line-height: 1.2; margin-top: 8px; border-top: 1px solid #333; padding-top: 6px; }
-        .effect-btn:nth-child(1) { top: 12%; left: 8%; transform: rotate(-3deg); } .effect-btn:nth-child(2) { top: 8%; left: 75%; transform: rotate(2deg); } .effect-btn:nth-child(3) { top: 22%; left: 25%; transform: rotate(-1deg); } .effect-btn:nth-child(4) { top: 19%; left: 65%; transform: rotate(4deg); } .effect-btn:nth-child(5) { top: 35%; left: 15%; transform: rotate(-2deg); } .effect-btn:nth-child(6) { top: 40%; left: 85%; transform: rotate(1deg); } .effect-btn:nth-child(7) { top: 45%; left: 45%; transform: rotate(-4deg); } .effect-btn:nth-child(8) { top: 55%; left: 20%; transform: rotate(3deg); } .effect-btn:nth-child(9) { top: 50%; left: 70%; transform: rotate(-1deg); } .effect-btn:nth-child(10) { top: 65%; left: 10%; transform: rotate(2deg); } .effect-btn:nth-child(11) { top: 70%; left: 55%; transform: rotate(-3deg); } .effect-btn:nth-child(12) { top: 75%; left: 30%; transform: rotate(1deg); } .effect-btn:nth-child(13) { top: 80%; left: 80%; transform: rotate(-2deg); } .effect-btn:nth-child(14) { top: 85%; left: 15%; transform: rotate(4deg); } .effect-btn:nth-child(15) { top: 90%; left: 60%; transform: rotate(-1deg); } .effect-btn:nth-child(16) { top: 88%; left: 40%; transform: rotate(2deg); background: rgba(100, 0, 0, 0.2); border-color: #ff0000; }
+
         .status { position: fixed; bottom: 20px; left: 20px; color: #888; font-family: 'Courier New', monospace; font-size: 0.75rem; z-index: 100; background: rgba(0, 0, 0, 0.8); padding: 4px 8px; border: 1px solid #333; border-radius: 2px; letter-spacing: 0.5px; }
         #processing-canvas { display: none; }
+
+        /* --- ANIMAÇÕES --- */
         @keyframes darkScanlines { 0% { background-position: 0 0, 0 0; opacity: 1; } 50% { background-position: 0 2px, 2px 0; opacity: 0.8; } 100% { background-position: 0 4px, 4px 0; opacity: 1; } }
         @keyframes noiseFlicker { 0%, 100% { opacity: 0.02; } 10% { opacity: 0.1; } 20% { opacity: 0.02; } 30% { opacity: 0.15; } 40%, 80% { opacity: 0.02; } 90% { opacity: 0.1; } }
         @keyframes titleCorruption { 0%, 90%, 100% { transform: translateX(-50%); filter: contrast(1.1); } 91% { transform: translateX(-48%) translateY(1px); filter: contrast(1.3) hue-rotate(10deg); } 93% { transform: translateX(-52%) translateY(-1px); filter: contrast(0.9); } 95% { transform: translateX(-49%); filter: contrast(1.2) hue-rotate(-5deg); } }
@@ -63,135 +168,18 @@
         @keyframes labFlicker { 0%, 50%, 100% { box-shadow: 0 0 50px rgba(255, 0, 0, 0.3), inset 0 0 30px rgba(255, 0, 0, 0.1); } 25%, 75% { box-shadow: 0 0 80px rgba(255, 0, 0, 0.5), inset 0 0 50px rgba(255, 0, 0, 0.2); } }
         @keyframes statusBlink { 0%, 50% { opacity: 1; } 25%, 75% { opacity: 0.3; } }
         @keyframes tooltipGlitch { 0%, 95%, 100% { filter: none; transform: translateY(-10px); } 96% { filter: contrast(1.2) hue-rotate(5deg); transform: translateY(-10px) translateX(1px); } 98% { filter: contrast(0.8); transform: translateY(-10px) translateX(-1px); } }
-        @media (max-width: 768px) { .upload-window { width: 90%; height: 300px; } .effect-btn { font-size: 0.7rem; padding: 5px 10px; } }
+
+        /* --- MOBILE --- */
         @media (max-width: 768px) {
-  .main-title {
-    position: relative;
-    top: auto;
-    left: auto;
-    transform: none;
-    text-align: center;
-    font-size: 2.5rem;
-    margin-top: 30px;
-    line-height: 1;
-  }
-
-  .subtitle {
-    position: relative;
-    top: auto;
-    left: auto;
-    transform: none;
-    text-align: center;
-    margin-top: 10px;
-    padding: 0 10px;
-  }
-
-  .upload-window {
-    position: relative;
-    top: auto;
-    left: auto;
-    transform: none;
-    width: 92%;
-    height: auto;
-    margin: 20px auto;
-  }
-
-  .work-area {
-    height: auto;
-    min-height: 250px;
-  }
-
-  .upload-dropzone {
-    padding: 20px 10px;
-    text-align: center;
-  }
-
-  .image-workspace {
-    flex-direction: column;
-  }
-
-  .workspace-image {
-    max-height: 300px;
-    object-fit: contain;
-  }
-
-  .download-btn {
-    bottom: 10px;
-    right: 10px;
-    padding: 6px 12px;
-  }
-
-  .effects-container {
-    position: relative;
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 8px;
-    padding: 20px 10px;
-    height: auto;
-  }
-
-  .effect-btn {
-    position: relative !important;
-    top: auto !important;
-    left: auto !important;
-    transform: none !important;
-    font-size: 0.75rem;
-    padding: 6px 10px;
-    flex-shrink: 0;
-  }
-
-  .effect-tooltip {
-    display: none !important; /* tooltips desativados em mobile */
-  }
-
-  .status {
-    position: relative;
-    bottom: auto;
-    left: auto;
-    margin: 20px auto;
-    text-align: center;
-    width: fit-content;
-  }
-}
-/* CORREÇÃO PARA DIFERENTES TELAS - Arquivo Instável */
-/* Cola isso ANTES do </style> */
-
-.glitch-title {
-    z-index: 10;
-    min-width: 600px;
-    white-space: nowrap;
-}
-
-.subtitle {
-    z-index: 9;
-    position: relative;
-    margin-top: 10px;
-}
-
-.effect-btn {
-    z-index: 5;
-    position: relative !important;
-}
-
-.upload-window {
-    z-index: 3;
-    max-width: 90vw;
-}
-
-/* Para telas menores */
-@media screen and (max-width: 1366px) {
-    .glitch-title {
-        font-size: 4.5rem;
-    }
-    
-    .effect-btn {
-        margin: 2px;
-    }
-}
-
-        
+            .main-title { position: relative; top: auto; left: auto; transform: none; margin-top: 40px; font-size: 3rem; }
+            .subtitle { position: relative; top: auto; left: auto; transform: none; margin-bottom: 20px; }
+            .upload-window { position: relative; top: auto; left: auto; transform: none; margin: 0 auto; width: 90%; height: auto; min-height: 350px; }
+            .effects-container { position: relative; display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; width: 100%; height: auto; padding: 20px; top: auto; left: auto; }
+            .effect-btn { position: relative !important; top: auto !important; left: auto !important; right: auto !important; transform: none !important; margin: 2px; }
+            .status { position: relative; bottom: auto; left: auto; margin: 20px auto; width: fit-content; text-align: center; }
+        }
     </style>
+    
 </head>
 <body>
     <div class="bg-custom"></div> <div class="bg-overlay"></div> <div class="glitch-noise"></div>
@@ -479,5 +467,6 @@
     </script>
 </body>
 </html>
+
 
 
